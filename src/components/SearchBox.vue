@@ -10,6 +10,10 @@
       @keydown="onInputKeydown"
       autofocus
     />
+    <div v-if="store.calcResult !== null" class="calc-result">
+      <span class="calc-equals">= </span>
+      <span class="calc-value">{{ store.calcResult }}</span>
+    </div>
     <ResultList v-if="store.results.length > 0" ref="resultListRef" />
   </div>
 </template>
@@ -75,5 +79,23 @@ onMounted(() => {
 
 .search-input :deep(.ant-input::placeholder) {
   color: rgba(255, 255, 255, 0.4);
+}
+
+.calc-result {
+  padding: 8px 16px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.calc-equals {
+  color: rgba(255,255,255,0.4);
+  font-size: 14px;
+}
+.calc-value {
+  color: #61dafb;
+  font-size: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 </style>

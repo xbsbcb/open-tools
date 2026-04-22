@@ -23,6 +23,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::search::search_apps,
             commands::open::open_path,
+            commands::calc::eval_expr,
             sidecar::ping_sidecar,
         ])
         .run(tauri::generate_context!())

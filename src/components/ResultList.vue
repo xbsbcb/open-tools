@@ -22,7 +22,7 @@
             <div v-else class="result-item__icon result-item__icon--placeholder" />
             <div class="result-item__text">
               <span class="result-item__name">{{ item.name }}</span>
-              <span class="result-item__path">{{ item.path }}</span>
+              <span class="result-item__path">{{ displayPath(item.path) }}</span>
             </div>
           </div>
         </a-list-item>
@@ -44,6 +44,15 @@ const listRef = ref<HTMLElement | null>(null)
 const selectedIndex = ref(0)
 
 const visibleResults = computed(() => store.results.slice(0, MAX_VISIBLE))
+
+function displayPath(path: string): string {
+  if (path.endsWith('.desktop')) return path
+  const lastSlash = path.lastIndexOf('/')
+  if (lastSlash <= 0) return path
+  const parent = path.slice(0, lastSlash)
+  const parentSlash = parent.lastIndexOf('/')
+  return parentSlash === -1 ? parent : parent.slice(parentSlash + 1)
+}
 
 watch(() => store.results, () => {
   selectedIndex.value = 0
