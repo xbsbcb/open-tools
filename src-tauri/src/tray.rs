@@ -1,7 +1,7 @@
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, AppHandle,
+    AppHandle, Manager,
 };
 
 pub fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
@@ -12,8 +12,8 @@ pub fn setup_tray(app: &mut tauri::App) -> tauri::Result<()> {
     TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
-        .menu_on_left_click(false)
-        .on_menu_event(|app, event| match event.id.as_ref() {
+        .show_menu_on_left_click(false)
+        .on_menu_event(|app: &AppHandle, event| match event.id.as_ref() {
             "show" => toggle_main_window(app),
             "quit" => app.exit(0),
             _ => {}
