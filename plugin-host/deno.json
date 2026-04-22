@@ -1,0 +1,7 @@
+{
+  "name": "plugin-host",
+  "version": "0.1.0",
+  "tasks": {
+    "start": "deno run --allow-read --allow-write main.ts"
+  }
+}

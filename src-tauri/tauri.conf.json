@@ -1,0 +1,39 @@
+{
+  "productName": "open-tools",
+  "version": "0.1.0",
+  "identifier": "com.open-tools.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "open-tools",
+        "width": 480,
+        "height": 320,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "center": true,
+        "focus": true,
+        "visible": false
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "externalBin": ["binaries/deno"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
