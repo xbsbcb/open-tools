@@ -61,3 +61,39 @@ pub fn open_path(path: String) -> Result<(), String> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_strip_field_codes_removes_all_codes() {
+        assert_eq!(strip_field_codes("/usr/bin/firefox %u"), "/usr/bin/firefox");
+        assert_eq!(strip_field_codes("/usr/bin/firefox %U"), "/usr/bin/firefox");
+        assert_eq!(strip_field_codes("/usr/bin/evince %f"), "/usr/bin/evince");
+        assert_eq!(strip_field_codes("/usr/bin/gedit %F"), "/usr/bin/gedit");
+    }
+
+    #[test]
+    fn test_strip_field_codes_multiple_codes() {
+        assert_eq!(
+            strip_field_codes("/usr/bin/app %u %f --new-window"),
+            "/usr/bin/app --new-window"
+        );
+    }
+
+    #[test]
+    fn test_strip_field_codes_no_codes() {
+        assert_eq!(strip_field_codes("/usr/bin/app --flag"), "/usr/bin/app --flag");
+    }
+
+    #[test]
+    fn test_strip_field_codes_empty() {
+        assert_eq!(strip_field_codes(""), "");
+    }
+
+    #[test]
+    fn test_strip_field_codes_only_codes() {
+        assert_eq!(strip_field_codes("%u %F"), "");
+    }
+}

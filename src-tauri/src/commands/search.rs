@@ -38,6 +38,14 @@ fn base64_encode(data: &[u8]) -> String {
     out
 }
 
+// ─── Locale detection ─────────────────────────────────────────────────────────
+
+fn detect_locale() -> Option<String> {
+    let lang = std::env::var("LANG").ok()?;
+    let locale = lang.split('.').next()?.to_string();
+    if locale.is_empty() { None } else { Some(locale) }
+}
+
 // ─── Icon resolution ──────────────────────────────────────────────────────────
 
 const HICOLOR_SIZES: &[u32] = &[256, 128, 64, 48, 32];
@@ -143,11 +151,25 @@ fn score_match(name: &str, query: &str) -> u32 {
 
 fn parse_desktop_file(path: &PathBuf, query: &str) -> Option<AppResult> {
     let content = fs::read_to_string(path).ok()?;
+    parse_desktop_content(&content, path, query, detect_locale())
+}
 
+fn parse_desktop_content(
+    content: &str,
+    path: &PathBuf,
+    query: &str,
+    locale: Option<String>,
+) -> Option<AppResult> {
     let mut in_entry = false;
     let mut name = String::new();
+    let mut bare_name = String::new();
     let mut exec = String::new();
     let mut icon_field = String::new();
+
+    let locale_key = locale.as_deref().map(|l| format!("Name[{l}]="));
+    let lang_key = locale.as_deref().and_then(|l| {
+        if l.len() >= 2 { Some(format!("Name[{}]=", &l[..2])) } else { None }
+    });
 
     for line in content.lines() {
         let line = line.trim();
@@ -156,14 +178,32 @@ fn parse_desktop_file(path: &PathBuf, query: &str) -> Option<AppResult> {
         } else if line.starts_with('[') {
             in_entry = false;
         } else if in_entry {
-            if line.starts_with("Name=") && name.is_empty() {
-                name = line["Name=".len()..].to_string();
+            if name.is_empty() {
+                if let Some(ref key) = locale_key {
+                    if line.starts_with(key) {
+                        name = line[key.len()..].to_string();
+                        continue;
+                    }
+                }
+                if let Some(ref key) = lang_key {
+                    if line.starts_with(key) {
+                        name = line[key.len()..].to_string();
+                        continue;
+                    }
+                }
+            }
+            if line.starts_with("Name=") && bare_name.is_empty() {
+                bare_name = line["Name=".len()..].to_string();
             } else if line.starts_with("Exec=") && exec.is_empty() {
                 exec = line["Exec=".len()..].to_string();
             } else if line.starts_with("Icon=") && icon_field.is_empty() {
                 icon_field = line["Icon=".len()..].to_string();
             }
         }
+    }
+
+    if name.is_empty() {
+        name = bare_name;
     }
 
     if name.is_empty() || exec.is_empty() {
@@ -286,4 +326,150 @@ pub fn search_apps(query: String) -> Vec<AppResult> {
 
     results.truncate(20);
     results
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ─── base64_encode ────────────────────────────────────────────────────
+
+    #[test]
+    fn test_base64_encode_empty() {
+        assert_eq!(base64_encode(b""), "");
+    }
+
+    #[test]
+    fn test_base64_encode_one_byte() {
+        assert_eq!(base64_encode(b"f"), "Zg==");
+    }
+
+    #[test]
+    fn test_base64_encode_two_bytes() {
+        assert_eq!(base64_encode(b"fo"), "Zm8=");
+    }
+
+    #[test]
+    fn test_base64_encode_three_bytes() {
+        assert_eq!(base64_encode(b"foo"), "Zm9v");
+    }
+
+    #[test]
+    fn test_base64_encode_rfc4648_vectors() {
+        assert_eq!(base64_encode(b"Man"), "TWFu");
+        assert_eq!(base64_encode(b"Ma"), "TWE=");
+        assert_eq!(base64_encode(b"M"), "TQ==");
+    }
+
+    #[test]
+    fn test_base64_encode_binary() {
+        assert_eq!(base64_encode(&[0x00, 0xFF, 0xAA]), "AP+q");
+    }
+
+    // ─── score_match ──────────────────────────────────────────────────────
+
+    #[test]
+    fn test_score_match_prefix() {
+        assert_eq!(score_match("Firefox", "Fire"), 100);
+        assert_eq!(score_match("Google Chrome", "Goo"), 100);
+    }
+
+    #[test]
+    fn test_score_match_prefix_case_insensitive() {
+        assert_eq!(score_match("Firefox", "fire"), 100);
+        assert_eq!(score_match("GOOGLE CHROME", "google"), 100);
+    }
+
+    #[test]
+    fn test_score_match_word_prefix() {
+        assert_eq!(score_match("Google Chrome", "Ch"), 80);
+        assert_eq!(score_match("Visual Studio Code", "Stu"), 80);
+        assert_eq!(score_match("Visual Studio Code", "Co"), 80);
+    }
+
+    #[test]
+    fn test_score_match_hyphenated_word_prefix() {
+        assert_eq!(score_match("my-app-name", "app"), 80);
+        assert_eq!(score_match("my-app-name", "my"), 100);
+    }
+
+    #[test]
+    fn test_score_match_substring() {
+        assert_eq!(score_match("Firefox", "refo"), 50);
+        assert_eq!(score_match("Google Chrome", "rome"), 50);
+    }
+
+    #[test]
+    fn test_score_match_no_match() {
+        assert_eq!(score_match("Firefox", "xyz"), 0);
+    }
+
+    #[test]
+    fn test_score_match_empty_query() {
+        assert_eq!(score_match("Anything", ""), 50);
+    }
+
+    #[test]
+    fn test_score_match_cjk() {
+        assert_eq!(score_match("谷歌浏览器", "谷歌"), 100);
+        assert_eq!(score_match("谷歌浏览器", "浏览"), 50);
+    }
+
+    #[test]
+    fn test_score_match_numeric_suffix() {
+        // digits are alphanumeric, so not a word boundary — falls to substring
+        assert_eq!(score_match("MyApp123", "123"), 50);
+        assert_eq!(score_match("123MyApp", "123"), 100);
+    }
+
+    // ─── parse_desktop_file ───────────────────────────────────────────────
+
+    use std::io::Write;
+
+    fn write_temp_desktop(
+        name: &str,
+        exec: &str,
+        icon: &str,
+        locale_name: Option<(&str, &str)>,
+    ) -> std::path::PathBuf {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.desktop");
+        let mut f = std::fs::File::create(&path).unwrap();
+        writeln!(f, "[Desktop Entry]").unwrap();
+        if let Some((locale, loc_name)) = locale_name {
+            writeln!(f, "Name[{}]={}", locale, loc_name).unwrap();
+        }
+        writeln!(f, "Name={}", name).unwrap();
+        writeln!(f, "Exec={}", exec).unwrap();
+        if !icon.is_empty() {
+            writeln!(f, "Icon={}", icon).unwrap();
+        }
+        std::mem::forget(dir);
+        path
+    }
+
+    #[test]
+    fn test_parse_desktop_file_basic() {
+        let path = write_temp_desktop("Firefox", "/usr/bin/firefox %u", "", None);
+        let result = parse_desktop_file(&path, "Fire").unwrap();
+        assert_eq!(result.name, "Firefox");
+        assert_eq!(result.score, 100);
+    }
+
+    #[test]
+    fn test_parse_desktop_file_no_match() {
+        let path = write_temp_desktop("Firefox", "/usr/bin/firefox", "", None);
+        assert!(parse_desktop_file(&path, "xyz").is_none());
+    }
+
+    #[test]
+    fn test_parse_desktop_file_missing_fields() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("bad.desktop");
+        let mut f = std::fs::File::create(&path).unwrap();
+        writeln!(f, "[Desktop Entry]").unwrap();
+        writeln!(f, "Comment=A test").unwrap();
+        let result = parse_desktop_file(&path, "any");
+        assert!(result.is_none());
+    }
 }
