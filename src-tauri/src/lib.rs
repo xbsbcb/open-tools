@@ -1,3 +1,6 @@
+use std::sync::Mutex;
+use tauri::Manager;
+
 mod commands;
 mod db;
 mod shortcut;
@@ -15,6 +18,9 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
+            app.manage(sidecar::SidecarState {
+                child: Mutex::new(None),
+            });
             tray::setup_tray(app)?;
             shortcut::setup_shortcut(app)?;
             sidecar::start_deno_sidecar(app.handle().clone());
@@ -25,6 +31,12 @@ pub fn run() {
             commands::open::open_path,
             commands::calc::eval_expr,
             sidecar::ping_sidecar,
+            sidecar::send_to_sidecar,
+            commands::plugin::discover_plugins,
+            commands::plugin::install_plugin,
+            commands::plugin::uninstall_plugin,
+            commands::plugin::list_plugins,
+            commands::plugin::load_plugin,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

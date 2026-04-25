@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
 
 export interface SearchResult {
   name: string
-  icon: string   // base64 or path
+  icon: string
   path: string
   score: number
 }
@@ -14,6 +15,27 @@ export const useAppStore = defineStore('app', () => {
   const results = ref<SearchResult[]>([])
   const loading = ref(false)
   const calcResult = ref<string | null>(null)
+  const sidecarReady = ref(false)
+  const sidecarResponses = ref<Record<string, unknown>>({})
+
+  // Listen for async responses from the Deno sidecar
+  listen<string>('sidecar-output', (event) => {
+    try {
+      const msg = JSON.parse(event.payload)
+      if (msg?.id) {
+        sidecarResponses.value = {
+          ...sidecarResponses.value,
+          [msg.id]: msg,
+        }
+      }
+    } catch {
+      // malformed JSON — ignore
+    }
+  })
+
+  listen<void>('sidecar-ready', () => {
+    sidecarReady.value = true
+  })
 
   async function search(q: string) {
     loading.value = true
@@ -33,5 +55,14 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  return { query, results, loading, search, calcResult }
+  async function sendToSidecar(payload: object) {
+    return invoke<string>('send_to_sidecar', {
+      payload: JSON.stringify(payload),
+    }).catch((e) => {
+      console.error('send_to_sidecar error:', e)
+      return null
+    })
+  }
+
+  return { query, results, loading, search, calcResult, sidecarReady, sidecarResponses, sendToSidecar }
 })
