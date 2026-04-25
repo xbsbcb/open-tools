@@ -62,6 +62,27 @@ Vue → listen("sidecar-output", handler) ← Rust emit ← Deno stdout JSON-lin
 
 Plugins are GitHub repos with `rubick.json` metadata. Discovered via GitHub Topics API (`open-tools-plugin`). Installed into `~/.open-tools/plugins/<id>/`. Each plugin runs as a Deno module with declared permissions only.
 
+## Progress Status
+
+### Done
+
+| Step | Scope | Key Deliverables |
+|------|-------|-----------------|
+| Step 1 | Tauri skeleton | Window (transparent, borderless, always-on-top), system tray (Show/Quit), Alt+Space global shortcut, Deno sidecar spawn + JSON-lines IPC, SQLite migrations |
+| Step 2 | Search + Calculator | `.desktop` file scanner with fuzzy scoring (prefix=100, word-start=80, contains=50), icon resolution (hicolor/Pixmaps→data URL), file search (~/Downloads/Documents/Desktop), recursive-descent expression evaluator (`+ - * /` parentheses, unary minus, scientific notation), inline calculator result in search box, keyboard navigation (Arrow/Enter) |
+
+### In Progress / Next
+
+| Step | Scope | Notes |
+|------|-------|-------|
+| Step 3 | Plugin system | Plugin discovery via GitHub Topics, Deno-based plugin host with permission sandboxing, `rubick.json` metadata |
+
+### Known Gaps
+
+- `search.rs` has no tests
+- Shortcut plugin may not work under WSLg (X11 global hotkey capture limited); verified OK on native Windows/Linux
+- Deno sidecar is Step 1 placeholder (`{type:"pong"}`), not yet dispatching to plugins
+
 ## Key Files
 
 | File | Purpose |

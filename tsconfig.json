@@ -7,7 +7,7 @@
     "jsx": "preserve",
     "skipLibCheck": true,
     "lib": ["ES2021", "DOM"],
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.0",
     "baseUrl": ".",
     "paths": { "@/*": ["src/*"] }
   },
